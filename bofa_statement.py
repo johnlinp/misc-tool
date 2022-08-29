@@ -9,10 +9,10 @@ import csv
 class BofaStatement:
     @staticmethod
     def parse_args():
-        parser = argparse.ArgumentParser(description='Parse a statement from Band of America.')
+        parser = argparse.ArgumentParser(description='Parse a statement from Bank of America.')
 
         parser.add_argument('--input-file-path', '-i', type=str, required=True, help='The input file to parse')
-        parser.add_argument('--output-file-path', '-o', type=str, required=True, help='The output file to parse')
+        parser.add_argument('--output-file-path', '-o', type=str, required=True, help='The output file')
 
         return parser.parse_args()
 
