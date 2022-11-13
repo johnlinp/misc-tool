@@ -2,6 +2,7 @@
 
 import sys
 import argparse
+import re
 import logging
 import csv
 
@@ -13,6 +14,7 @@ class BofaStatement:
 
         parser.add_argument('--input-file-path', '-i', type=str, required=True, help='The input file to parse')
         parser.add_argument('--output-file-path', '-o', type=str, required=True, help='The output file')
+        parser.add_argument('--description-conversion-file-path', '-d', type=str, required=False, help='The description conversion file')
 
         return parser.parse_args()
 
@@ -21,6 +23,8 @@ class BofaStatement:
         BofaStatement._config_logging()
 
         statement_data = BofaStatement._parse_statement(args.input_file_path)
+        if args.description_conversion_file_path:
+            statement_data = BofaStatement._convert_descriptions(statement_data, args.description_conversion_file_path)
         BofaStatement._write_records(statement_data, args.output_file_path)
 
     @staticmethod
@@ -39,11 +43,33 @@ class BofaStatement:
             tokens = line.strip().split(' ')
             statement_data.append({
                 'date': tokens[0],
-                'description': BofaStatement._big_camel(' '.join(tokens[2:-3])),
+                'description': ' '.join(tokens[2:-3]),
                 'amount': tokens[-1]
             })
 
         return statement_data
+
+    @staticmethod
+    def _convert_descriptions(statement_data, description_conversion_file_path):
+        with open(description_conversion_file_path) as f:
+            reader = csv.DictReader(f)
+
+            description_conversions = {}
+            for row in reader:
+                description_conversions[row['Description Regex Pattern']] = row['Substituting Name']
+
+        return [BofaStatement._convert_entry_description(entry, description_conversions) for entry in statement_data]
+
+    @staticmethod
+    def _convert_entry_description(entry, description_conversions):
+        for pattern in description_conversions:
+            if re.search(pattern, entry['description']):
+                return {
+                    'date': entry['date'],
+                    'description': description_conversions[pattern],
+                    'amount': entry['amount'],
+                }
+        return entry
 
     @staticmethod
     def _write_records(statement_data, output_file_path):
@@ -59,12 +85,6 @@ class BofaStatement:
                 writer.writerow([date])
                 for entry in data_group_by_date[date]:
                     writer.writerow([entry['description'], entry['amount']])
-
-    @staticmethod
-    def _big_camel(s):
-        tokens = s.split(' ')
-        big_camel_tokens = [token[0].upper() + token[1:].lower() for token in tokens]
-        return ' '.join(big_camel_tokens)
 
 
 class Error(Exception):
