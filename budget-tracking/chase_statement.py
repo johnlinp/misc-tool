@@ -2,6 +2,7 @@
 
 import sys
 import argparse
+import re
 import logging
 import csv
 
@@ -13,6 +14,7 @@ class ChaseStatement:
 
         parser.add_argument('--input-file-paths', '-i', type=str, required=True, nargs='+', help='The list of input files to parse')
         parser.add_argument('--output-file-path', '-o', type=str, required=True, help='The output file to parse')
+        parser.add_argument('--description-conversion-file-path', '-d', type=str, required=False, help='The description conversion file')
 
         return parser.parse_args()
 
@@ -21,6 +23,8 @@ class ChaseStatement:
         ChaseStatement._config_logging()
 
         statement_data = ChaseStatement._parse_statement(args.input_file_paths)
+        if args.description_conversion_file_path:
+            statement_data = ChaseStatement._convert_descriptions(statement_data, args.description_conversion_file_path)
         ChaseStatement._write_records(statement_data, args.output_file_path)
 
     @staticmethod
@@ -46,11 +50,33 @@ class ChaseStatement:
             for entry in zip(dates, descriptions, amounts):
                 statement_data.append({
                     'date': entry[0].strip(),
-                    'description': ChaseStatement._big_camel(entry[1].strip()),
+                    'description': entry[1].strip(),
                     'amount': entry[2].strip()
                 })
 
         return statement_data
+
+    @staticmethod
+    def _convert_descriptions(statement_data, description_conversion_file_path):
+        with open(description_conversion_file_path) as f:
+            reader = csv.DictReader(f)
+
+            description_conversions = {}
+            for row in reader:
+                description_conversions[row['Description Regex Pattern']] = row['Substituting Name']
+
+        return [ChaseStatement._convert_entry_description(entry, description_conversions) for entry in statement_data]
+
+    @staticmethod
+    def _convert_entry_description(entry, description_conversions):
+        for pattern in description_conversions:
+            if re.search(pattern, entry['description']):
+                return {
+                    'date': entry['date'],
+                    'description': description_conversions[pattern],
+                    'amount': entry['amount'],
+                }
+        return entry
 
     @staticmethod
     def _write_records(statement_data, output_file_path):
@@ -66,12 +92,6 @@ class ChaseStatement:
                 writer.writerow([date])
                 for entry in data_group_by_date[date]:
                     writer.writerow([entry['description'], entry['amount']])
-
-    @staticmethod
-    def _big_camel(s):
-        tokens = s.split(' ')
-        big_camel_tokens = [token[0].upper() + token[1:].lower() for token in tokens]
-        return ' '.join(big_camel_tokens)
 
 
 class Error(Exception):
