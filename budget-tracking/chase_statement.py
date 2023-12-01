@@ -12,8 +12,8 @@ class ChaseStatement:
     def parse_args():
         parser = argparse.ArgumentParser(description='Parse a statement from Chase Bank.')
 
-        parser.add_argument('--input-file-paths', '-i', type=str, required=True, nargs='+', help='The list of input files to parse')
-        parser.add_argument('--output-file-path', '-o', type=str, required=True, help='The output file to parse')
+        parser.add_argument('--input-file-path', '-i', type=str, required=True, help='The input file to parse')
+        parser.add_argument('--output-file-path', '-o', type=str, required=True, help='The output file')
         parser.add_argument('--description-conversion-file-path', '-d', type=str, required=False, help='The description conversion file')
 
         return parser.parse_args()
@@ -22,7 +22,7 @@ class ChaseStatement:
     def run(args):
         ChaseStatement._config_logging()
 
-        statement_data = ChaseStatement._parse_statement(args.input_file_paths)
+        statement_data = ChaseStatement._parse_statement(args.input_file_path)
         if args.description_conversion_file_path:
             statement_data = ChaseStatement._convert_descriptions(statement_data, args.description_conversion_file_path)
         ChaseStatement._write_records(statement_data, args.output_file_path)
@@ -34,25 +34,18 @@ class ChaseStatement:
         logging.basicConfig(level=log_level, format=log_format)
 
     @staticmethod
-    def _parse_statement(input_file_paths):
+    def _parse_statement(input_file_path):
+        with open(input_file_path) as f:
+            lines = f.readlines()
+
         statement_data = []
-        for input_file_path in input_file_paths:
-            with open(input_file_path) as f:
-                lines = f.readlines()
-
-            if len(lines) % 3 != 0:
-                raise Error('the number of lines are unexpected')
-
-            num_records = len(lines) // 3
-            dates = lines[:num_records]
-            descriptions = lines[num_records:num_records * 2]
-            amounts = lines[num_records * 2:]
-            for entry in zip(dates, descriptions, amounts):
-                statement_data.append({
-                    'date': entry[0].strip(),
-                    'description': entry[1].strip(),
-                    'amount': entry[2].strip()
-                })
+        for line in lines:
+            tokens = line.strip().split(' ')
+            statement_data.append({
+                'date': tokens[0],
+                'description': ' '.join(tokens[1:-1]),
+                'amount': tokens[-1]
+            })
 
         return statement_data
 
