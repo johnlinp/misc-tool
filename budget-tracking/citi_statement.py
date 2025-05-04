@@ -38,6 +38,10 @@ class CitiStatement:
         return re.sub(r'\$', '', amount)
 
     @staticmethod
+    def _is_date(s):
+        return bool(re.match(r'^\d\d/\d\d$', s))
+
+    @staticmethod
     def _parse_statement(input_file_path):
         with open(input_file_path) as f:
             lines = f.readlines()
@@ -45,11 +49,18 @@ class CitiStatement:
         statement_data = []
         for line in lines:
             tokens = line.strip().split(' ')
-            statement_data.append({
-                'date': tokens[0],
-                'description': ' '.join(tokens[2:-3]),
-                'amount': CitiStatement._parse_amount(tokens[-1])
-            })
+            if CitiStatement._is_date(tokens[0]) and CitiStatement._is_date(tokens[1]):
+                statement_data.append({
+                    'date': tokens[0],
+                    'description': ' '.join(tokens[2:-1]),
+                    'amount': CitiStatement._parse_amount(tokens[-1])
+                })
+            else:
+                statement_data.append({
+                    'date': tokens[0],
+                    'description': ' '.join(tokens[1:-1]),
+                    'amount': CitiStatement._parse_amount(tokens[-1])
+                })
 
         return statement_data
 
